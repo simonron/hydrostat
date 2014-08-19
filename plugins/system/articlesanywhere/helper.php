@@ -3,7 +3,7 @@
  * Plugin Helper File
  *
  * @package         Articles Anywhere
- * @version         3.5.4
+ * @version         3.6.0
  *
  * @author          Peter van Westen <peter@nonumber.nl>
  * @link            http://www.nonumber.nl
@@ -14,15 +14,17 @@
 defined('_JEXEC') or die;
 
 require_once JPATH_PLUGINS . '/system/nnframework/helpers/functions.php';
-require_once JPATH_PLUGINS . '/system/nnframework/helpers/text.php';
 require_once JPATH_PLUGINS . '/system/nnframework/helpers/protect.php';
+require_once JPATH_PLUGINS . '/system/nnframework/helpers/text.php';
+
+NNFrameworkFunctions::loadLanguage('plg_system_articlesanywhere');
 
 /**
  * Plugin that places articles
  */
 class plgSystemArticlesAnywhereHelper
 {
-	function __construct(&$params)
+	public function __construct(&$params)
 	{
 		$this->option = JFactory::getApplication()->input->get('option');
 
@@ -39,15 +41,16 @@ class plgSystemArticlesAnywhereHelper
 		$this->params->tags = '(' . preg_quote($this->params->article_tag, '#')
 			. ')';
 		$this->params->regex = '#'
-			. $bts . '\{' . $this->params->tags . '(?:(?: |&nbsp;)([^\}]*))?\}' . $bte
+			. $bts . '\{' . $this->params->tags . '(?:(?: |&nbsp;|&\#160;)([^\}]*))?\}' . $bte
 			. '(.*?)'
 			. $bts . '\{/\3\}' . $bte
 			. '#s';
 		$this->params->breaks_start = $bts;
 		$this->params->breaks_end = $bte;
 
-		$user = JFactory::getUser();
-		$this->params->aid = $user->getAuthorisedViewLevels();
+		$this->params->protected_tags = array(
+			$this->params->article_tag,
+		);
 
 		$db = JFactory::getDBO();
 		$selects = $db->getTableColumns('#__content');
@@ -60,118 +63,47 @@ class plgSystemArticlesAnywhereHelper
 		}
 
 
-		$this->params->dispatcher = 0;
+		$this->params->message = '';
 
-		$this->params->config = JComponentHelper::getParams('com_content');
+		$this->aid = JFactory::getUser()->getAuthorisedViewLevels();
+
+		$this->config = JComponentHelper::getParams('com_content');
+
+		$this->params->disabled_components = array('com_acymailing');
 	}
 
-	function onContentPrepare(&$article, &$context)
+	public function onContentPrepare(&$article, &$context)
 	{
-		$message = '';
-
 		$area = isset($article->created_by) ? 'articles' : 'other';
 
 
-		if (isset($article->text)
-			&& !(
-				$context == 'com_content.category'
-				&& JFactory::getApplication()->input->get('view') == 'category'
-				&& !JFactory::getApplication()->input->get('layout')
-			)
-		)
-		{
-			$this->processArticles($article->text, $article, $area, $message);
-		}
-		if (isset($article->description))
-		{
-			$this->processArticles($article->description, $article, $area, $message);
-		}
-		if (isset($article->title))
-		{
-			$this->processArticles($article->title, $article, $area, $message);
-		}
-		if (isset($article->created_by_alias))
-		{
-			$this->processArticles($article->created_by_alias, $article, $area, $message);
-		}
+		NNFrameworkHelper::processArticle($article, $context, $this, 'processArticles', array(&$article, $area));
 	}
 
-	function onAfterDispatch()
+	public function onAfterDispatch()
 	{
-		// PDF
-		if (JFactory::getDocument()->getType() == 'pdf')
+		// only in html
+		if (JFactory::getDocument()->getType() !== 'html' && JFactory::getDocument()->getType() !== 'feed')
 		{
-			$buffer = JFactory::getDocument()->getBuffer('component');
-			if (is_array($buffer))
-			{
-				if (isset($buffer['component'], $buffer['component']['']))
-				{
-					if (isset($buffer['component']['']['component'], $buffer['component']['']['component']['']))
-					{
-						$this->replaceTags($buffer['component']['']['component'][''], 0);
-					}
-					else
-					{
-						$this->replaceTags($buffer['component'][''], 0);
-					}
-				}
-				else if (isset($buffer['0'], $buffer['0']['component'], $buffer['0']['component']['']))
-				{
-					if (isset($buffer['0']['component']['']['component'], $buffer['0']['component']['']['component']['']))
-					{
-						$this->replaceTags($buffer['component']['']['component'][''], 0);
-					}
-					else
-					{
-						$this->replaceTags($buffer['0']['component'][''], 0);
-					}
-				}
-			}
-			else
-			{
-				$this->replaceTags($buffer);
-			}
-			JFactory::getDocument()->setBuffer($buffer, 'component');
-
 			return;
 		}
 
-		if ((JFactory::getDocument()->getType() == 'feed' || $this->option == 'com_acymailing') && isset(JFactory::getDocument()->items))
+		$buffer = JFactory::getDocument()->getBuffer('component');
+
+		if (empty($buffer) || is_array($buffer))
 		{
-			$context = 'feed';
-			$items = JFactory::getDocument()->items;
-			foreach ($items as $item)
-			{
-				$this->onContentPrepare($item, $context);
-			}
+			return;
 		}
 
-		$buffer = JFactory::getDocument()->getBuffer('component');
-		if (!empty($buffer))
-		{
-			if (is_array($buffer))
-			{
-				if (isset($buffer['component']) && isset($buffer['component']['']))
-				{
-					$this->tagArea($buffer['component'][''], 'ARTA', 'component');
-				}
-			}
-			else if ($this->option == 'com_jmap' && JFactory::getDocument()->getType() == 'xml')
-			{
-				$this->replaceTags($buffer);
-			}
-			else
-			{
-				$this->tagArea($buffer, 'ARTA', 'component');
-			}
-			JFactory::getDocument()->setBuffer($buffer, 'component');
-		}
+		$this->replaceTags($buffer, 'component');
+
+		JFactory::getDocument()->setBuffer($buffer, 'component');
 	}
 
-	function onAfterRender()
+	public function onAfterRender()
 	{
-		// not in pdf's
-		if (JFactory::getDocument()->getType() == 'pdf')
+		// only in html and feeds
+		if (JFactory::getDocument()->getType() !== 'html' && JFactory::getDocument()->getType() !== 'feed')
 		{
 			return;
 		}
@@ -184,19 +116,17 @@ class plgSystemArticlesAnywhereHelper
 
 		if (JFactory::getDocument()->getType() != 'html')
 		{
-			$this->replaceTags($html);
+			$this->replaceTags($html, 'body');
 			$this->cleanLeftoverJunk($html);
 		}
 		else
 		{
 			// only do stuff in body
 			list($pre, $body, $post) = nnText::getBody($html);
-			$this->protect($body);
-			$this->replaceTags($body);
+			$this->replaceTags($body, 'body');
 			$html = $pre . $body . $post;
 
 			$this->cleanLeftoverJunk($html);
-			NNProtect::unprotect($html);
 
 			// replace head with newly generated head
 			// this is necessary because the plugins might have added scripts/styles to the head
@@ -208,17 +138,38 @@ class plgSystemArticlesAnywhereHelper
 		JResponse::setBody($html);
 	}
 
-	function replaceTags(&$str)
+	function replaceTags(&$str, $area = 'article')
 	{
 		if (!is_string($str) || $str == '')
 		{
 			return;
 		}
 
-		$message = '';
+		if ($area == 'component')
+		{
+			// allow in component?
+			if (in_array(JFactory::getApplication()->input->get('option'), $this->params->disabled_components))
+			{
+				$this->protectTags($str);
+
+				return;
+			}
+		}
+
+		if (
+			strpos($str, '{' . $this->params->article_tag) === false
+
+		)
+		{
+			return;
+		}
+
+		$this->protect($str);
+
+		$this->params->message = '';
 
 		// COMPONENT
-		if (JFactory::getDocument()->getType() == 'feed' || $this->option == 'com_acymailing')
+		if (JFactory::getDocument()->getType() == 'feed')
 		{
 			$s = '#(<item[^>]*>)#s';
 			$str = preg_replace($s, '\1<!-- START: ARTA_COMPONENT -->', $str);
@@ -234,12 +185,14 @@ class plgSystemArticlesAnywhereHelper
 		$article = null;
 		foreach ($components as $component)
 		{
-			$this->processArticles($component['1'], $article, 'components', $message);
+			$this->processArticles($component['1'], $article, 'components');
 			$str = str_replace($component['0'], $component['1'], $str);
 		}
 
 		// EVERYWHERE
 		$this->processArticles($str, $article, 'other');
+
+		NNProtect::unprotect($str);
 	}
 
 	function tagArea(&$str, $ext = 'EXT', $area = '')
@@ -276,7 +229,7 @@ class plgSystemArticlesAnywhereHelper
 		return $matches;
 	}
 
-	function processArticles(&$string, &$art, $area = 'articles', $message = '')
+	function processArticles(&$string, &$art, $area = 'articles')
 	{
 
 		$regex_close = '#\{/' . $this->params->tags . '\}#si';
@@ -317,7 +270,7 @@ class plgSystemArticlesAnywhereHelper
 							}
 						}
 
-						$html = $this->processMatch($string, $art, $match, $ignores, $message);
+						$html = $this->processMatch($string, $art, $match, $ignores);
 						$string = str_replace($match['0'], $html, $string);
 				}
 				$matches = array();
@@ -325,14 +278,14 @@ class plgSystemArticlesAnywhereHelper
 		}
 	}
 
-	function processMatch(&$string, &$art, &$match, &$ignores, &$message, &$count = 0)
+	function processMatch(&$string, &$art, &$match, &$ignores, &$count = 0)
 	{
 		$html = '';
-		if ($message != '')
+		if ($this->params->message != '')
 		{
 			if ($this->params->place_comments)
 			{
-				$html = $this->params->comment_start . $this->params->message_start . $message . $this->params->message_end . $this->params->comment_end;
+				$html = $this->params->comment_start . $this->params->message_start . $this->params->message . $this->params->message_end . $this->params->comment_end;
 			}
 		}
 		else
@@ -387,9 +340,7 @@ class plgSystemArticlesAnywhereHelper
 
 			$html = $p1_start . $br1a . $br1b . $html . $br2a . $br2b . $p2_end;
 
-			$html = preg_replace('#((?:<p(?: [^>]*)?>\s*)?)((?:<br ?/?>)?\s*<div(?: [^>]*)?>.*?</div>\s*(?:<br ?/?>)?)((?:\s*</p>)?)#', '\3\2\1', $html);
-			$html = preg_replace('#(<p(?: [^>]*)?>\s*(<!--.*?-->\s*)?)<p(?: [^>]*)?>#', '\1', $html);
-			$html = preg_replace('#(</p>\s*(<!--.*?-->\s*)?)</p>#', '\1', $html);
+			nnText::fixHtmlTagStructure($html);
 		}
 
 		return $html;
@@ -513,7 +464,7 @@ class plgSystemArticlesAnywhereHelper
 		$ignore_access = isset($ignores['ignore_access']) ? $ignores['ignore_access'] : $this->params->ignore_access;
 		if (!$ignore_access)
 		{
-			$query->where('a.access IN(' . implode(', ', $this->params->aid) . ')');
+			$query->where('a.access IN(' . implode(', ', $this->aid) . ')');
 		}
 
 		$query->order('a.ordering');
@@ -719,7 +670,7 @@ class plgSystemArticlesAnywhereHelper
 							{
 								$readmore = $article->alternative_readmore;
 							}
-							else if (!$this->params->config->get('show_readmore_title', 0))
+							else if (!$this->config->get('show_readmore_title', 0))
 							{
 								$readmore = JText::_('COM_CONTENT_READ_MORE_TITLE');
 							}
@@ -727,9 +678,9 @@ class plgSystemArticlesAnywhereHelper
 							{
 								$readmore = JText::_('COM_CONTENT_READ_MORE');
 							}
-							if ($this->params->config->get('show_readmore_title', 0))
+							if ($this->config->get('show_readmore_title', 0))
 							{
-								$readmore .= JHtml::_('string.truncate', ($article->title), $this->params->config->get('readmore_limit'));
+								$readmore .= JHtml::_('string.truncate', ($article->title), $this->config->get('readmore_limit'));
 							}
 						}
 						if ($class == 'readmore')
@@ -877,10 +828,12 @@ class plgSystemArticlesAnywhereHelper
 								$max = (int) $max;
 								if ($max < $orig_len)
 								{
-									if(function_exists('mb_substr'))
+									if (function_exists('mb_substr'))
 									{
 										$str = rtrim(mb_substr($str, 0, ($max - 3), 'utf-8'));
-									} else {
+									}
+									else
+									{
 										$str = rtrim(substr($str, 0, ($max - 3)));
 									}
 
@@ -1028,10 +981,12 @@ class plgSystemArticlesAnywhereHelper
 										}
 										else
 										{
-											if(function_exists('mb_substr'))
+											if (function_exists('mb_substr'))
 											{
 												$string = rtrim(mb_substr($str_part, 0, ($max - 3), 'utf-8'));
-											} else {
+											}
+											else
+											{
 												$string = rtrim(substr($str_part, 0, ($max - 3)));
 											}
 
@@ -1210,20 +1165,23 @@ class plgSystemArticlesAnywhereHelper
 		NNProtect::protectSourcerer($str);
 	}
 
+	function protectTags(&$str)
+	{
+		NNProtect::protectTags($str, $this->params->protected_tags);
+	}
+
+	function unprotectTags(&$str)
+	{
+		NNProtect::unprotectTags($str, $this->params->protected_tags);
+	}
+
 	/**
 	 * Just in case you can't figure the method name out: this cleans the left-over junk
 	 */
 	function cleanLeftoverJunk(&$str)
 	{
-		if (strpos($str, '{/' . $this->params->article_tag . '}') !== false)
-		{
-			$regex = $this->params->regex;
-			if (@preg_match($regex . 'u', $str))
-			{
-				$regex .= 'u';
-			}
-			$str = preg_replace($regex, '', $str);
-		}
+		$this->unprotectTags($str);
+
 		$str = preg_replace('#<\!-- (START|END): ARTA_[^>]* -->#', '', $str);
 		if (!$this->params->place_comments)
 		{

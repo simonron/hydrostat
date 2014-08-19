@@ -4,7 +4,7 @@
  * Displays a list with modules
  *
  * @package         Articles Anywhere
- * @version         3.5.4
+ * @version         3.6.0
  *
  * @author          Peter van Westen <peter@nonumber.nl>
  * @link            http://www.nonumber.nl
@@ -45,12 +45,11 @@ class plgButtonArticlesAnywherePopup
 		$app = JFactory::getApplication();
 
 		// load the admin language file
-		$lang = JFactory::getLanguage();
-		$lang->load('plg_system_nnframework', JPATH_ADMINISTRATOR);
-		$lang->load('plg_editors-xtd_articlesanywhere', JPATH_ADMINISTRATOR);
-		$lang->load('plg_system_articlesanywhere', JPATH_ADMINISTRATOR);
-		// load the content language file
-		$lang->load('com_content', JPATH_ADMINISTRATOR);
+		require_once JPATH_PLUGINS . '/system/nnframework/helpers/functions.php';
+		NNFrameworkFunctions::loadLanguage('plg_system_nnframework');
+		NNFrameworkFunctions::loadLanguage('plg_editors-xtd_articlesanywhere');
+		NNFrameworkFunctions::loadLanguage('plg_system_articlesanywhere');
+		NNFrameworkFunctions::loadLanguage('com_content');
 
 		JHtml::stylesheet('nnframework/style.min.css', false, true);
 

@@ -60,14 +60,14 @@ textarea.form-control {
 .btn-inverse:focus,
 .btn-inverse:active,
 .btn-inverse.active,
-.open .dropdown-toggle.btn-inverse {
+.open > .dropdown-toggle.btn-inverse {
   color: #ffffff;
-  background-color: #1f1f1f;
+  background-color: #1a1a1a;
   border-color: #080808;
 }
 .btn-inverse:active,
 .btn-inverse.active,
-.open .dropdown-toggle.btn-inverse {
+.open > .dropdown-toggle.btn-inverse {
   background-image: none;
 }
 .btn-inverse.disabled,

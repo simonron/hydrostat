@@ -3,7 +3,7 @@
  * NoNumber Framework Helper File: Assignments
  *
  * @package         NoNumber Framework
- * @version         14.5.17
+ * @version         14.8.4
  *
  * @author          Peter van Westen <peter@nonumber.nl>
  * @link            http://www.nonumber.nl
@@ -30,7 +30,7 @@ class NNFrameworkAssignmentsHelper
 	var $subtype = '';
 	var $cache = array();
 
-	function __construct()
+	public function __construct()
 	{
 		$this->db = JFactory::getDBO();
 		$this->q = $this->db->getQuery(true);

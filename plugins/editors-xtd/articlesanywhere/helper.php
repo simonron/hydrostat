@@ -3,7 +3,7 @@
  * Plugin Helper File
  *
  * @package         Articles Anywhere
- * @version         3.5.4
+ * @version         3.6.0
  *
  * @author          Peter van Westen <peter@nonumber.nl>
  * @link            http://www.nonumber.nl
@@ -18,7 +18,7 @@ defined('_JEXEC') or die;
  */
 class plgButtonArticlesAnywhereHelper
 {
-	function __construct(&$params)
+	public function __construct(&$params)
 	{
 		$this->params = $params;
 	}
@@ -32,14 +32,18 @@ class plgButtonArticlesAnywhereHelper
 	{
 		$button = new JObject;
 
-		if (JFactory::getApplication()->isSite() && !$this->params->enable_frontend) {
+		if (JFactory::getApplication()->isSite() && !$this->params->enable_frontend)
+		{
 			return $button;
 		}
+
+		require_once JPATH_PLUGINS . '/system/nnframework/helpers/functions.php';
+		NNFrameworkFunctions::loadLanguage('plg_editors-xtd_articlesanywhere');
 
 		JHtml::_('behavior.modal');
 		JHtml::stylesheet('nnframework/style.min.css', false, true);
 
-		$icon = 'nonumber icon-articlesanywhere';
+		$class = 'nonumber icon-articlesanywhere';
 		$link = 'index.php?nn_qp=1'
 			. '&folder=plugins.editors-xtd.articlesanywhere'
 			. '&file=articlesanywhere.inc.php'
@@ -47,7 +51,8 @@ class plgButtonArticlesAnywhereHelper
 
 		$text_ini = strtoupper(str_replace(' ', '_', $this->params->button_text));
 		$text = JText::_($text_ini);
-		if ($text == $text_ini) {
+		if ($text == $text_ini)
+		{
 			$text = JText::_($this->params->button_text);
 		}
 
@@ -55,7 +60,7 @@ class plgButtonArticlesAnywhereHelper
 		$button->class = 'btn';
 		$button->link = $link;
 		$button->text = trim($text);
-		$button->name = $icon;
+		$button->name = $class;
 		$button->options = "{handler: 'iframe', size: {x:window.getSize().x-100, y: window.getSize().y-100}}";
 
 		return $button;

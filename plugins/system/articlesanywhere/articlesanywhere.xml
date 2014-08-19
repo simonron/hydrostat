@@ -2,8 +2,8 @@
 <extension version="3.2" type="plugin" group="system" method="upgrade">
 	<name>PLG_SYSTEM_ARTICLESANYWHERE</name>
 	<description>PLG_SYSTEM_ARTICLESANYWHERE_DESC</description>
-	<version>3.5.4FREE</version>
-	<creationDate>May 2014</creationDate>
+	<version>3.6.0FREE</version>
+	<creationDate>August 2014</creationDate>
 	<author>NoNumber (Peter van Westen)</author>
 	<authorEmail>peter@nonumber.nl</authorEmail>
 	<authorUrl>http://www.nonumber.nl</authorUrl>
@@ -29,7 +29,6 @@
 				<field name="@header" type="nn_header"
 					label="ARTICLES_ANYWHERE"
 					description="ARTICLES_ANYWHERE_DESC"
-					xml="/plugins/system/articlesanywhere/articlesanywhere.xml"
 					url="http://www.nonumber.nl/articlesanywhere" />
 			</fieldset>
 			<fieldset name="basic">
